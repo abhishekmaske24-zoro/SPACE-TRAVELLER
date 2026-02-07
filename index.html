@@ -1,178 +1,279 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Acode Star-Fighter</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
-        #score-board { position: absolute; top: 20px; color: #00ffcc; font-size: 24px; font-weight: bold; text-shadow: 0 0 10px #00ffcc; }
-        .menu { pointer-events: auto; background: rgba(0, 0, 0, 0.8); padding: 30px; border: 2px solid #00ffcc; border-radius: 15px; text-align: center; color: white; }
-        button { background: #00ffcc; border: none; padding: 10px 25px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 15px; }
-        .hidden { display: none !important; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SPACE TRAVELLER</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+#loader{
+  position:fixed;
+  inset:0;
+  background:black;
+  color:#00ffcc;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:2rem;
+  font-weight:bold;
+  z-index:9999;
+}
+
+#ui-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+
+#score-board {
+  position: absolute;
+  top: 20px;
+  color: #00ffcc;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: 0 0 10px #00ffcc;
+}
+
+.menu {
+  pointer-events: auto;
+  background: rgba(0,0,0,0.85);
+  padding: 30px;
+  border: 2px solid #00ffcc;
+  border-radius: 15px;
+  text-align: center;
+  color: white;
+}
+
+button {
+  background: #00ffcc;
+  border: none;
+  padding: 10px 25px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 5px;
+  margin-top: 15px;
+}
+
+.hidden { display: none !important; }
+</style>
 </head>
+
 <body>
 
-    <div id="ui-layer">
-        <div id="score-board" class="hidden">SCORE: <span id="score">0</span></div>
-        
-        <div id="start-menu" class="menu">
-            <h1>STAR FIGHTER</h1>
-            <p>Tap sides to move & dodge</p>
-            <button onclick="startGame()">START MISSION</button>
-        </div>
+<div id="loader">🚀 Initializing Hyperdrive...</div>
 
-        <div id="game-over" class="menu hidden">
-            <h1 style="color: #ff0055;">CRITICAL DAMAGE</h1>
-            <p>Final Score: <span id="final-score">0</span></p>
-            <button onclick="startGame()">REDEPLOY</button>
-        </div>
-    </div>
+<div id="ui-layer">
+  <div id="score-board" class="hidden">SCORE: <span id="score">0</span></div>
 
-    <script type="importmap">
-        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
-    </script>
+  <div id="start-menu" class="menu">
+    <h1>STAR FIGHTER</h1>
+    <p>Tap or use Arrow Keys</p>
+    <button onclick="startGame()">START MISSION</button>
+  </div>
 
-    <script type="module">
-        import * as THREE from 'three';
+  <div id="game-over" class="menu hidden">
+    <h1 style="color:#ff0055;">CRITICAL DAMAGE</h1>
+    <p>Final Score: <span id="final-score">0</span></p>
+    <button onclick="startGame()">REDEPLOY</button>
+  </div>
+</div>
 
-        let scene, camera, renderer, ship, stars, engineFire;
-        let enemies = [];
-        let particles = [];
-        let score = 0;
-        let isGameRunning = false;
-        let moveDir = 0;
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
 
-        function init() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            document.body.appendChild(renderer.domElement);
+<script type="module">
+import * as THREE from 'three';
 
-            // Lighting
-            const sun = new THREE.DirectionalLight(0xffffff, 2);
-            sun.position.set(5, 5, 5);
-            scene.add(sun);
-            scene.add(new THREE.AmbientLight(0x333333));
+let scene, camera, renderer, ship, stars, engineFire;
+let enemies = [];
+let particles = [];
+let score = 0;
+let speed = 0.4;
+let isGameRunning = false;
+let moveDir = 0;
 
-            // Create Spaceship Group
-            ship = new THREE.Group();
-            
-            // Body
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 1.2), new THREE.MeshStandardMaterial({color: 0x888888}));
-            ship.add(body);
-            
-            // Wings
-            const wing = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.5), new THREE.MeshStandardMaterial({color: 0x555555}));
-            ship.add(wing);
+/* 🔊 Sounds */
+const engineSound = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_1d5c9e92b1.mp3");
+engineSound.loop = true;
+engineSound.volume = 0.4;
 
-            // Cockpit
-            const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshStandardMaterial({color: 0x00ccff, transparent: true, opacity: 0.7}));
-            cockpit.position.set(0, 0.1, 0.2);
-            ship.add(cockpit);
+const blastSound = new Audio("https://cdn.pixabay.com/audio/2022/03/10/audio_25c1b1a1fa.mp3");
 
-            // Engine Flame
-            const fireGeo = new THREE.ConeGeometry(0.15, 0.5, 8);
-            const fireMat = new THREE.MeshBasicMaterial({color: 0xffaa00});
-            engineFire = new THREE.Mesh(fireGeo, fireMat);
-            engineFire.position.set(0, 0, -0.8);
-            engineFire.rotation.x = -Math.PI/2;
-            ship.add(engineFire);
+function init(){
+  scene = new THREE.Scene();
 
-            scene.add(ship);
-            camera.position.set(0, 3, 6);
-            camera.lookAt(ship.position);
+  camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+  camera.position.set(0,3,6);
 
-            // Stars
-            const starGeo = new THREE.BufferGeometry();
-            const starPoints = [];
-            for(let i=0; i<1500; i++) starPoints.push((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*100);
-            starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPoints, 3));
-            stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xffffff, size: 0.1}));
-            scene.add(stars);
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(devicePixelRatio);
+  document.body.appendChild(renderer.domElement);
 
-            window.addEventListener('touchstart', (e) => { moveDir = e.touches[0].clientX < window.innerWidth/2 ? -0.12 : 0.12; });
-            window.addEventListener('touchend', () => { moveDir = 0; });
-            
-            animate();
-        }
+  scene.add(new THREE.DirectionalLight(0xffffff,2).position.set(5,5,5));
+  scene.add(new THREE.AmbientLight(0x333333));
 
-        window.startGame = () => {
-            score = 0;
-            enemies.forEach(e => scene.remove(e));
-            enemies = [];
-            particles.forEach(p => scene.remove(p));
-            particles = [];
-            ship.position.set(0,0,0);
-            ship.visible = true;
-            document.getElementById('start-menu').classList.add('hidden');
-            document.getElementById('game-over').classList.add('hidden');
-            document.getElementById('score-board').classList.remove('hidden');
-            isGameRunning = true;
-        };
+  ship = new THREE.Group();
 
-        function createExplosion(pos) {
-            for(let i=0; i<15; i++) {
-                const p = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshBasicMaterial({color: 0xff5500}));
-                p.position.copy(pos);
-                p.userData.velocity = new THREE.Vector3((Math.random()-0.5)*0.3, (Math.random()-0.5)*0.3, (Math.random()-0.5)*0.3);
-                scene.add(p);
-                particles.push(p);
-            }
-        }
+  ship.add(new THREE.Mesh(
+    new THREE.BoxGeometry(0.5,0.2,1.2),
+    new THREE.MeshStandardMaterial({color:0x888888})
+  ));
 
-        function gameOver() {
-            isGameRunning = false;
-            ship.visible = false;
-            createExplosion(ship.position);
-            document.getElementById('game-over').classList.remove('hidden');
-            document.getElementById('final-score').innerText = score;
-        }
+  ship.add(new THREE.Mesh(
+    new THREE.BoxGeometry(1.5,0.05,0.5),
+    new THREE.MeshStandardMaterial({color:0x555555})
+  ));
 
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            if(isGameRunning) {
-                ship.position.x += moveDir;
-                ship.position.x = Math.max(Math.min(ship.position.x, 5), -5);
-                ship.rotation.z = -moveDir * 6;
-                engineFire.scale.set(1, 1 + Math.random(), 1); // Flicker effect
+  const cockpit = new THREE.Mesh(
+    new THREE.SphereGeometry(0.2,8,8),
+    new THREE.MeshStandardMaterial({color:0x00ccff,transparent:true,opacity:0.7})
+  );
+  cockpit.position.set(0,0.1,0.2);
+  ship.add(cockpit);
 
-                if(Math.random() < 0.04) {
-                    const enemy = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), new THREE.MeshStandardMaterial({color: 0xff0044}));
-                    enemy.position.set((Math.random()-0.5)*10, 0, -40);
-                    scene.add(enemy);
-                    enemies.push(enemy);
-                }
+  engineFire = new THREE.Mesh(
+    new THREE.ConeGeometry(0.15,0.5,8),
+    new THREE.MeshBasicMaterial({color:0xffaa00})
+  );
+  engineFire.position.set(0,0,-0.8);
+  engineFire.rotation.x = -Math.PI/2;
+  ship.add(engineFire);
 
-                enemies.forEach((e, i) => {
-                    e.position.z += 0.4;
-                    e.rotation.x += 0.02;
-                    if(ship.position.distanceTo(e.position) < 0.8) gameOver();
-                    if(e.position.z > 10) { 
-                        scene.remove(e); enemies.splice(i, 1); 
-                        score++; document.getElementById('score').innerText = score;
-                    }
-                });
-            }
+  scene.add(ship);
 
-            particles.forEach((p, i) => {
-                p.position.add(p.userData.velocity);
-                p.scale.multiplyScalar(0.95);
-                if(p.scale.x < 0.01) { scene.remove(p); particles.splice(i, 1); }
-            });
+  const starGeo = new THREE.BufferGeometry();
+  const starsArr = [];
+  for(let i=0;i<1500;i++){
+    starsArr.push((Math.random()-0.5)*100,(Math.random()-0.5)*100,(Math.random()-0.5)*100);
+  }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starsArr,3));
+  stars = new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff,size:0.1}));
+  scene.add(stars);
 
-            stars.position.z += 0.1;
-            if(stars.position.z > 50) stars.position.z = 0;
+  window.addEventListener('touchstart',e=>{
+    moveDir = e.touches[0].clientX < innerWidth/2 ? -0.12 : 0.12;
+  });
+  window.addEventListener('touchend',()=>moveDir=0);
 
-            renderer.render(scene, camera);
-        }
+  window.addEventListener("keydown",e=>{
+    if(e.key==="ArrowLeft") moveDir=-0.12;
+    if(e.key==="ArrowRight") moveDir=0.12;
+  });
+  window.addEventListener("keyup",()=>moveDir=0);
 
-        init();
-    </script>
+  document.getElementById("loader").style.display="none";
+  animate();
+}
+
+window.startGame = ()=>{
+  score = 0;
+  speed = 0.4;
+  enemies.forEach(e=>scene.remove(e));
+  particles.forEach(p=>scene.remove(p));
+  enemies=[]; particles=[];
+  ship.visible=true;
+  ship.position.set(0,0,0);
+  document.getElementById("score").innerText=0;
+  document.getElementById("start-menu").classList.add("hidden");
+  document.getElementById("game-over").classList.add("hidden");
+  document.getElementById("score-board").classList.remove("hidden");
+  engineSound.play();
+  isGameRunning=true;
+};
+
+function explode(pos){
+  for(let i=0;i<15;i++){
+    const p=new THREE.Mesh(
+      new THREE.SphereGeometry(0.1),
+      new THREE.MeshBasicMaterial({color:0xff5500})
+    );
+    p.position.copy(pos);
+    p.userData.vel=new THREE.Vector3(
+      (Math.random()-0.5)*0.3,
+      (Math.random()-0.5)*0.3,
+      (Math.random()-0.5)*0.3
+    );
+    scene.add(p);
+    particles.push(p);
+  }
+}
+
+function gameOver(){
+  isGameRunning=false;
+  ship.visible=false;
+  explode(ship.position);
+  engineSound.pause();
+  blastSound.play();
+  document.getElementById("final-score").innerText=score;
+  document.getElementById("game-over").classList.remove("hidden");
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+
+  if(isGameRunning){
+    ship.position.x+=moveDir;
+    ship.position.x=Math.max(-5,Math.min(5,ship.position.x));
+    ship.rotation.z=-moveDir*6;
+    engineFire.scale.y=1+Math.random();
+
+    if(Math.random()<0.04){
+      const e=new THREE.Mesh(
+        new THREE.BoxGeometry(0.7,0.7,0.7),
+        new THREE.MeshStandardMaterial({color:0xff0044})
+      );
+      e.position.set((Math.random()-0.5)*10,0,-40);
+      scene.add(e);
+      enemies.push(e);
+    }
+
+    enemies.forEach((e,i)=>{
+      e.position.z+=speed;
+      if(ship.position.distanceTo(e.position)<0.8){
+        camera.position.x+=(Math.random()-0.5)*0.3;
+        camera.position.y+=(Math.random()-0.5)*0.3;
+        gameOver();
+      }
+      if(e.position.z>10){
+        scene.remove(e);
+        enemies.splice(i,1);
+        score++;
+        speed+=0.01;
+        document.getElementById("score").innerText=score;
+      }
+    });
+  }
+
+  particles.forEach((p,i)=>{
+    p.position.add(p.userData.vel);
+    p.scale.multiplyScalar(0.95);
+    if(p.scale.x<0.01){scene.remove(p);particles.splice(i,1);}
+  });
+
+  stars.position.z+=0.1;
+  if(stars.position.z>50) stars.position.z=0;
+
+  renderer.render(scene,camera);
+}
+
+init();
+</script>
 </body>
 </html>
