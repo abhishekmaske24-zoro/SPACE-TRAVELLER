@@ -74,7 +74,13 @@ button {
 <div id="loader">🚀 Initializing Hyperdrive...</div>
 
 <div id="ui-layer">
-  <div id="score-board" class="hidden">SCORE: <span id="score">0</span></div>
+ <div id="score-board" class="hidden">
+  SCORE: <span id="score">0</span>
+  &nbsp; | &nbsp;
+  DIST: <span id="dist">0</span> m
+  &nbsp; | &nbsp;
+  BEST: <span id="best">0</span> m
+</div>
 
   <div id="start-menu" class="menu">
     <h1>STAR FIGHTER</h1>
@@ -103,10 +109,22 @@ import * as THREE from 'three';
 let scene, camera, renderer, ship, stars, engineFire;
 let enemies = [];
 let particles = [];
+
 let score = 0;
-let speed = 0.4;
+let baseSpeed = 0.35;     // starting speed
+let speed = baseSpeed;
 let isGameRunning = false;
 let moveDir = 0;
+
+// ✅ Distance + best record
+let distance = 0;         // meters
+let bestDistance = Number(localStorage.getItem("bestDistance") || 0);
+
+// UI refs
+const scoreEl = document.getElementById("score");
+const distEl  = document.getElementById("dist");
+const bestEl  = document.getElementById("best");
+bestEl.innerText = bestDistance;
 
 /* 🔊 Sounds */
 const engineSound = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_1d5c9e92b1.mp3");
@@ -114,6 +132,9 @@ engineSound.loop = true;
 engineSound.volume = 0.4;
 
 const blastSound = new Audio("https://cdn.pixabay.com/audio/2022/03/10/audio_25c1b1a1fa.mp3");
+
+// ✅ for smooth distance update
+let lastTime = performance.now();
 
 function init(){
   scene = new THREE.Scene();
@@ -178,23 +199,41 @@ function init(){
   });
   window.addEventListener("keyup",()=>moveDir=0);
 
+  window.addEventListener("resize", ()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
   document.getElementById("loader").style.display="none";
   animate();
 }
 
 window.startGame = ()=>{
   score = 0;
-  speed = 0.4;
+  distance = 0;
+  baseSpeed = 0.35;
+  speed = baseSpeed;
+  lastTime = performance.now();
+
   enemies.forEach(e=>scene.remove(e));
   particles.forEach(p=>scene.remove(p));
   enemies=[]; particles=[];
+
   ship.visible=true;
   ship.position.set(0,0,0);
-  document.getElementById("score").innerText=0;
+
+  scoreEl.innerText = 0;
+  distEl.innerText = 0;
+  bestEl.innerText = bestDistance;
+
   document.getElementById("start-menu").classList.add("hidden");
   document.getElementById("game-over").classList.add("hidden");
   document.getElementById("score-board").classList.remove("hidden");
+
+  engineSound.currentTime = 0;
   engineSound.play();
+
   isGameRunning=true;
 };
 
@@ -220,43 +259,70 @@ function gameOver(){
   ship.visible=false;
   explode(ship.position);
   engineSound.pause();
+  blastSound.currentTime = 0;
   blastSound.play();
-  document.getElementById("final-score").innerText=score;
+
+  // ✅ Save best record
+  if(distance > bestDistance){
+    bestDistance = Math.floor(distance);
+    localStorage.setItem("bestDistance", bestDistance);
+  }
+
+  document.getElementById("final-score").innerText = score + " | " + Math.floor(distance) + "m";
   document.getElementById("game-over").classList.remove("hidden");
 }
 
 function animate(){
   requestAnimationFrame(animate);
 
-  if(isGameRunning){
-    ship.position.x+=moveDir;
-    ship.position.x=Math.max(-5,Math.min(5,ship.position.x));
-    ship.rotation.z=-moveDir*6;
-    engineFire.scale.y=1+Math.random();
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastTime) / 1000); // seconds (clamped)
+  lastTime = now;
 
-    if(Math.random()<0.04){
-      const e=new THREE.Mesh(
+  if(isGameRunning){
+    // ✅ Distance increases with time (meters)
+    // (tweak multiplier if you want faster/slower meter count)
+    distance += dt * 30; // 30 m/s base feel
+    distEl.innerText = Math.floor(distance);
+
+    // ✅ Difficulty: speed increases as distance increases (smooth scaling)
+    // Every 100m -> +0.06 speed, capped
+    const difficultyBoost = (distance / 100) * 0.06;
+    speed = Math.min(1.6, baseSpeed + difficultyBoost);
+
+    // ship movement
+    ship.position.x += moveDir;
+    ship.position.x = Math.max(-5, Math.min(5, ship.position.x));
+    ship.rotation.z = -moveDir * 6;
+    engineFire.scale.y = 1 + Math.random();
+
+    // ✅ Spawn rate also increases a bit with distance (optional difficulty)
+    const spawnChance = Math.min(0.09, 0.04 + distance / 2500); // grows slowly
+    if(Math.random() < spawnChance){
+      const e = new THREE.Mesh(
         new THREE.BoxGeometry(0.7,0.7,0.7),
         new THREE.MeshStandardMaterial({color:0xff0044})
       );
-      e.position.set((Math.random()-0.5)*10,0,-40);
+      e.position.set((Math.random()-0.5)*10, 0, -40);
       scene.add(e);
       enemies.push(e);
     }
 
     enemies.forEach((e,i)=>{
-      e.position.z+=speed;
-      if(ship.position.distanceTo(e.position)<0.8){
-        camera.position.x+=(Math.random()-0.5)*0.3;
-        camera.position.y+=(Math.random()-0.5)*0.3;
+      e.position.z += speed;
+
+      if(ship.position.distanceTo(e.position) < 0.8){
+        camera.position.x += (Math.random()-0.5)*0.3;
+        camera.position.y += (Math.random()-0.5)*0.3;
         gameOver();
       }
-      if(e.position.z>10){
+
+      if(e.position.z > 10){
         scene.remove(e);
         enemies.splice(i,1);
+
         score++;
-        speed+=0.01;
-        document.getElementById("score").innerText=score;
+        scoreEl.innerText = score;
       }
     });
   }
@@ -264,16 +330,20 @@ function animate(){
   particles.forEach((p,i)=>{
     p.position.add(p.userData.vel);
     p.scale.multiplyScalar(0.95);
-    if(p.scale.x<0.01){scene.remove(p);particles.splice(i,1);}
+    if(p.scale.x < 0.01){
+      scene.remove(p);
+      particles.splice(i,1);
+    }
   });
 
-  stars.position.z+=0.1;
-  if(stars.position.z>50) stars.position.z=0;
+  stars.position.z += 0.1;
+  if(stars.position.z > 50) stars.position.z = 0;
 
   renderer.render(scene,camera);
 }
 
 init();
 </script>
+
 </body>
 </html>
